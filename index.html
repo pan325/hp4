@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>迪士尼卡牌猜猜乐</title>
+  <!-- 基础分享元标签 -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="迪士尼卡牌猜猜乐 - 有趣的迪士尼角色猜谜游戏">
+<meta property="og:description" content="根据特征描述，找出正确的迪士尼角色，测试你对迪士尼的了解程度！">
+<meta property="og:image" content="https://pan325.github.io/hp4/disney-logo.jpg"> <!-- 替换为你的缩略图URL -->
+<meta property="og:url" content="https://pan325.github.io/hp4/"> <!-- 替换为你的网页URL -->
+
+<!-- 微信特定标签 -->
+<meta name="wechat-share-title" content="迪士尼卡牌猜猜乐 - 有趣的迪士尼角色猜谜游戏">
+<meta name="wechat-share-desc" content="根据特征描述，找出正确的迪士尼角色，测试你对迪士尼的了解程度！">
+<meta name="wechat-share-img" content="https://pan325.github.io/hp4/disney-logo.jpg"> <!-- 替换为你的缩略图URL --><script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- 配置Tailwind主题 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#FF6B6B',
+            secondary: '#4ECDC4',
+            accent: '#FFD166',
+            dark: '#292F36',
+            light: '#F7FFF7',
+            reward: {
+              1: '#FFD700', // 金奖
+              2: '#C0C0C0', // 银奖
+              3: '#CD7F32', // 铜奖
+              4: '#98FB98', // 优秀奖
+              5: '#87CEFA'  // 参与奖
+            }
+          },
+          fontFamily: {
+            disney: ['"Comic Sans MS"', '"Marker Felt"', 'Arial', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .card-flip {
+        perspective: 1000px;
+        transform-style: preserve-3d;
+      }
+      .card-inner {
+        transition: transform 0.6s;
+        transform-style: preserve-3d;
+      }
+      .card-front, .card-back {
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+      }
+      .card-front {
+        transform: rotateY(180deg);
+      }
+      .flipped .card-inner {
+        transform: rotateY(180deg);
+      }
+      .text-shadow {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      }
+      .animate-pulse-slow {
+        animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+      .audio-controls {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 40;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-100 min-h-screen font-disney text-dark overflow-x-hidden">
+  <!-- 所有音频元素（本地文件） -->
+  <audio id="bg-music" loop preload="auto">
+    <source src="background.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="correct-sound" preload="auto">
+    <source src="correct.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="wrong-sound" preload="auto">
+    <source src="wrong.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="flip-sound" preload="auto">
+    <source src="audio/flip.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="win-sound" preload="auto">
+    <source src="win.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="lose-sound" preload="auto">
+    <source src="lose.mp3" type="audio/mpeg">
+  </audio>
+  
+  <!-- 背景音乐控制按钮 -->
+  <div class="audio-controls">
+    <button id="music-toggle" class="bg-primary/90 hover:bg-primary text-white p-3 rounded-full shadow-lg transition-all">
+      <i class="fa fa-music"></i>
+    </button>
+  </div>
+  
+  <div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- 游戏标题 -->
+    <header class="text-center mb-8">
+      <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-bold text-primary text-shadow mb-2 animate-float">迪士尼卡牌猜猜乐</h1>
+      <p class="text-gray-600 text-lg">根据特征描述，找出正确的迪士尼角色！</p>
+    </header>
+    
+    <!-- 游戏状态区 -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 flex-wrap">
+      <div class="bg-white rounded-xl shadow-lg p-4 w-full md:w-auto flex-1 md:flex-none">
+        <div class="flex items-center gap-2">
+          <i class="fa fa-clock-o text-primary text-xl"></i>
+          <span class="font-bold">用时：</span>
+          <span id="timer" class="text-accent font-bold text-xl">00:00</span>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl shadow-lg p-4 w-full md:w-auto flex-1 md:flex-none">
+        <div class="flex items-center gap-2">
+          <i class="fa fa-question-circle text-primary text-xl"></i>
+          <span class="font-bold">猜测次数：</span>
+          <span id="attempts" class="text-accent font-bold text-xl">1/5</span>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl shadow-lg p-4 w-full md:w-auto flex-1 md:flex-none">
+        <button id="restart-btn" class="flex items-center gap-2 bg-primary hover:bg-primary/80 text-white py-2 px-4 rounded-lg transition-all transform hover:scale-105">
+          <i class="fa fa-refresh"></i>
+          <span>重新开始</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- 特征描述区 -->
+    <div class="bg-white rounded-2xl shadow-xl p-6 mb-10 text-center">
+      <h2 class="text-xl font-bold mb-3 text-dark">特征描述：</h2>
+      <div id="clues-container" class="min-h-[100px]">
+        <ul id="clues-list" class="list-disc list-inside text-gray-700 space-y-2">
+          <!-- 特征描述会动态添加到这里 -->
+        </ul>
+      </div>
+    </div>
+    
+    <!-- 卡牌区域 -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-10">
+      <!-- 卡牌会动态生成 -->
+    </div>
+    
+    <!-- 游戏说明 -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+      <h3 class="text-xl font-bold mb-3 text-primary">游戏规则</h3>
+      <ul class="list-disc list-inside space-y-2 text-gray-700">
+        <li>每张卡牌对应一个迪士尼经典角色</li>
+        <li>根据给出的特征描述猜测正确的角色</li>
+        <li>点击卡牌可以将其翻转查看正面</li>
+        <li>第1次猜对获得金奖，第2次银奖，第3次铜奖，第4次优秀奖，第5次参与奖</li>
+        <li>5次都猜错则没有奖励</li>
+      </ul>
+    </div>
+  </div>
+  
+  <!-- 奖励弹窗 -->
+  <div id="reward-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-3xl p-8 max-w-md w-full mx-4 transform transition-all scale-95 opacity-0" id="modal-content">
+      <div class="text-center">
+        <div id="reward-icon" class="text-6xl mb-4"></div>
+        <h2 id="reward-title" class="text-2xl font-bold mb-2"></h2>
+        <p id="reward-message" class="text-gray-600 mb-4"></p>
+        <div id="character-quote" class="italic text-gray-700 border-l-4 border-primary pl-4 py-2 mb-6 bg-gray-50 rounded-r">
+          <!-- 角色名言会显示在这里 -->
+        </div>
+        <button id="close-modal" class="bg-primary hover:bg-primary/80 text-white py-3 px-8 rounded-lg text-lg font-bold transition-all transform hover:scale-105">
+          继续游戏
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 游戏数据 - 18个迪士尼角色，包括玲娜贝尔
+    const gameData = {
+      characters: {
+        mickey: {
+          name: "米老鼠",
+          englishName: "Mickey Mouse",
+          clues: [
+            "它是一只老鼠",
+            "它穿着红色短裤和黄色鞋子",
+            "它是迪士尼的标志性角色",
+            "它有一个女朋友叫米妮",
+            "它有一只宠物狗叫布鲁托"
+          ],
+          quote: "梦想一旦付诸行动，就会变得神圣。",
+          imageId: "mickey"
+        },
+        elsa: {
+          name: "艾莎",
+          englishName: "Elsa",
+          clues: [
+            "她是一位公主",
+            "她拥有控制冰雪的魔法",
+            "她来自《冰雪奇缘》",
+            "她有一个妹妹叫安娜",
+            "她建造了一座冰城堡"
+          ],
+          quote: "不要害怕你的力量，要勇敢地拥抱它。",
+          imageId: "elsa"
+        },
+        simba: {
+          name: "辛巴",
+          englishName: "Simba",
+          clues: [
+            "它是一只狮子",
+            "它是森林之王",
+            "它来自《狮子王》",
+            "它的父亲是木法沙",
+            "它有一个朋友叫丁满"
+          ],
+          quote: "记住你是谁，你是真正的国王。",
+          imageId: "simba"
+        },
+        belle: {
+          name: "贝儿",
+          englishName: "Belle",
+          clues: [
+            "她是一位美丽的公主",
+            "她非常喜欢读书",
+            "她来自《美女与野兽》",
+            "她爱上了一个被诅咒的野兽",
+            "她有一个发明家父亲"
+          ],
+          quote: "外表并不重要，重要的是内心。",
+          imageId: "belle"
+        },
+        buzz: {
+          name: "巴斯光年",
+          englishName: "Buzz Lightyear",
+          clues: [
+            "他是一个太空骑警",
+            "他来自《玩具总动员》",
+            "他认为自己是真正的太空人",
+            "他的口号是'飞向宇宙，浩瀚无垠'",
+            "他是伍迪的好朋友"
+          ],
+          quote: "飞向宇宙，浩瀚无垠！",
+          imageId: "buzz"
+        },
+        moana: {
+          name: "莫阿娜",
+          englishName: "Moana",
+          clues: [
+            "她是一位航海家",
+            "她来自南太平洋的岛屿",
+            "她为了拯救族人出海远航",
+            "她遇到了半神毛伊",
+            "她有一只宠物公鸡"
+          ],
+          quote: "海洋选择了你，你必须追随你的命运。",
+          imageId: "moana"
+        },
+        winnie: {
+          name: "小熊维尼",
+          englishName: "Winnie the Pooh",
+          clues: [
+            "它是一只小熊",
+            "它非常喜欢蜂蜜",
+            "它住在百亩森林",
+            "它有一个朋友叫小猪",
+            "它说话时会舔爪子"
+          ],
+          quote: "如果你今天做不完，明天再试也不迟。",
+          imageId: "winnie"
+        },
+        tinkerbell: {
+          name: "小叮当",
+          englishName: "Tinker Bell",
+          clues: [
+            "她是一个仙子",
+            "她有一对翅膀",
+            "她来自《彼得·潘》",
+            "她会修理东西",
+            "她有时会嫉妒"
+          ],
+          quote: "即使是小仙子，也能创造大奇迹。",
+          imageId: "tinkerbell"
+        },
+        donald: {
+          name: "唐老鸭",
+          englishName: "Donald Duck",
+          clues: [
+            "它是一只鸭子",
+            "它脾气不太好",
+            "它穿着蓝色水手服",
+            "它是米老鼠的好朋友",
+            "它说话有点含糊不清"
+          ],
+          quote: "哦，天啊，这简直是一场灾难！",
+          imageId: "donald"
+        },
+        ariel: {
+          name: "爱丽儿",
+          englishName: "Ariel",
+          clues: [
+            "她是一条美人鱼",
+            "她有红色的长发",
+            "她来自《小美人鱼》",
+            "她渴望成为人类",
+            "她有一个螃蟹朋友叫塞巴斯丁"
+          ],
+          quote: "我愿意为梦想付出一切。",
+          imageId: "ariel"
+        },
+        mulan: {
+          name: "花木兰",
+          englishName: "Mulan",
+          clues: [
+            "她是一位中国英雄",
+            "她代父从军",
+            "她有一只小龙伙伴",
+            "她证明了女孩也能勇敢善战",
+            "她来自中国古代"
+          ],
+          quote: "勇气不是没有恐惧，而是战胜恐惧。",
+          imageId: "mulan"
+        },
+        peterpan: {
+          name: "彼得·潘",
+          englishName: "Peter Pan",
+          clues: [
+            "他永远不会长大",
+            "他会飞",
+            "他住在梦幻岛",
+            "他和海盗胡克是敌人",
+            "他带温蒂兄妹去梦幻岛"
+          ],
+          quote: "所有的孩子都会长大，除了一个人。",
+          imageId: "peterpan"
+        },
+        rapunzel: {
+          name: "乐佩",
+          englishName: "Rapunzel",
+          clues: [
+            "她有非常长的金发",
+            "她被关在高塔上",
+            "她的头发有魔力",
+            "她喜欢画画",
+            "她来自《魔发奇缘》"
+          ],
+          quote: "我要去看看那片灯海。",
+          imageId: "rapunzel"
+        },
+        shrek: {
+          name: "史莱克",
+          englishName: "Shrek",
+          clues: [
+            "他是一个绿色的怪物",
+            "他住在沼泽里",
+            "他娶了菲奥娜公主",
+            "他有一个驴子朋友",
+            "他不喜欢别人闯入他的领地"
+          ],
+          quote: "人们总是害怕他们不理解的东西。",
+          imageId: "shrek"
+        },
+        zootopia: {
+          name: "朱迪",
+          englishName: "Judy Hopps",
+          clues: [
+            "她是一只兔子",
+            "她是一名警察",
+            "她来自《疯狂动物城》",
+            "她想让世界变得更美好",
+            "她有一个狐狸搭档"
+          ],
+          quote: "任何人都可以成就任何事。",
+          imageId: "zootopia"
+        },
+        frozenanna: {
+          name: "安娜",
+          englishName: "Anna",
+          clues: [
+            "她是一位活泼的公主",
+            "她来自《冰雪奇缘》",
+            "她是艾莎的妹妹",
+            "她非常勇敢",
+            "她为了姐姐愿意付出一切"
+          ],
+          quote: "爱能战胜一切。",
+          imageId: "frozenanna"
+        },
+        lionkingnala: {
+          name: "娜娜",
+          englishName: "Nala",
+          clues: [
+            "她是一只母狮子",
+            "她来自《狮子王》",
+            "她是辛巴的朋友",
+            "她勇敢且聪明",
+            "她帮助辛巴夺回王位"
+          ],
+          quote: "有时候，你必须离开过去才能找到自己。",
+          imageId: "lionkingnala"
+        },
+        linabell: {
+          name: "玲娜贝尔",
+          englishName: "LinaBell",
+          clues: [
+            "她是一只粉色的狐狸",
+            "她是迪士尼的新朋友",
+            "她非常聪明",
+            "她喜欢解谜和探险",
+            "她有大大的尾巴"
+          ],
+          quote: "好奇心是探索世界的钥匙。",
+          imageId: "linabell"
+        }
+      },
+      currentTarget: null,
+      currentCards: [],
+      currentAttempt: 1,
+      maxAttempts: 5,
+      isProcessing: false,
+      startTime: null,
+      timerInterval: null,
+      isMusicPlaying: false
+    };
+
+    // DOM元素
+    const elements = {
+      cardsContainer: document.querySelector('.grid'),
+      cluesList: document.getElementById('clues-list'),
+      attemptsDisplay: document.getElementById('attempts'),
+      timerDisplay: document.getElementById('timer'),
+      restartBtn: document.getElementById('restart-btn'),
+      rewardModal: document.getElementById('reward-modal'),
+      modalContent: document.getElementById('modal-content'),
+      rewardIcon: document.getElementById('reward-icon'),
+      rewardTitle: document.getElementById('reward-title'),
+      rewardMessage: document.getElementById('reward-message'),
+      characterQuote: document.getElementById('character-quote'),
+      closeModal: document.getElementById('close-modal'),
+      correctSound: document.getElementById('correct-sound'),
+      wrongSound: document.getElementById('wrong-sound'),
+      flipSound: document.getElementById('flip-sound'),
+      winSound: document.getElementById('win-sound'),
+      loseSound: document.getElementById('lose-sound'),
+      bgMusic: document.getElementById('bg-music'),
+      musicToggle: document.getElementById('music-toggle')
+    };
+
+    // 初始化游戏
+    function initGame() {
+      // 重置游戏状态
+      gameData.currentAttempt = 1;
+      gameData.isProcessing = false;
+      elements.attemptsDisplay.textContent = `${gameData.currentAttempt}/${gameData.maxAttempts}`;
+      
+      // 随机选择目标角色
+      const characterKeys = Object.keys(gameData.characters);
+      gameData.currentTarget = characterKeys[Math.floor(Math.random() * characterKeys.length)];
+      
+      // 选择6个角色（包含目标角色）
+      gameData.currentCards = [gameData.currentTarget];
+      while (gameData.currentCards.length < 6) {
+        const randomChar = characterKeys[Math.floor(Math.random() * characterKeys.length)];
+        if (!gameData.currentCards.includes(randomChar)) {
+          gameData.currentCards.push(randomChar);
+        }
+      }
+      
+      // 打乱卡牌顺序
+      gameData.currentCards.sort(() => Math.random() - 0.5);
+      
+      // 生成卡牌
+      generateCards();
+      
+      // 显示当前尝试次数对应的线索
+      updateClues();
+      
+      // 启动计时器
+      startTimer();
+      
+      // 尝试播放背景音乐（需用户交互后才能自动播放）
+      tryPlayBackgroundMusic();
+    }
+
+    // 生成卡牌
+    function generateCards() {
+      elements.cardsContainer.innerHTML = '';
+      
+      gameData.currentCards.forEach(character => {
+        const charData = gameData.characters[character];
+        const cardColor = getRandomColor();
+        
+        const card = document.createElement('div');
+        card.className = 'card-flip h-[300px] cursor-pointer';
+        card.dataset.character = character;
+        
+        card.innerHTML = `
+          <div class="card-inner relative w-full h-full">
+            <!-- 卡牌背面 -->
+            <div class="card-back absolute w-full h-full ${cardColor} rounded-2xl shadow-2xl flex flex-col items-center justify-center p-4 border-4 border-white">
+              <img src="disney-logo.jpg" alt="迪士尼标志" class="w-24 h-24 object-contain mb-3">
+              <h3 class="text-white text-lg font-bold text-shadow">神秘角色</h3>
+              <p class="text-white/80 text-xs">点击翻转</p>
+            </div>
+            
+            <!-- 卡牌正面（使用本地图片） -->
+            <div class="card-front absolute w-full h-full bg-light rounded-2xl shadow-2xl border-4 border-white overflow-hidden">
+              <img src="${charData.imageId}.jpg" alt="${charData.name}" class="w-full h-2/3 object-cover">
+              <div class="p-2 text-center">
+                <h3 class="text-lg font-bold text-dark">${charData.name}</h3>
+                <p class="text-gray-600 text-sm">${charData.englishName}</p>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        card.addEventListener('click', handleCardClick);
+        elements.cardsContainer.appendChild(card);
+      });
+    }
+
+    // 获取随机卡牌颜色
+    function getRandomColor() {
+      const colors = [
+        'bg-gradient-to-br from-primary to-pink-400',
+        'bg-gradient-to-br from-secondary to-blue-400',
+        'bg-gradient-to-br from-accent to-orange-400',
+        'bg-gradient-to-br from-purple-500 to-indigo-500',
+        'bg-gradient-to-br from-green-500 to-teal-500',
+        'bg-gradient-to-br from-red-500 to-amber-500'
+      ];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    // 更新线索显示
+    function updateClues() {
+      elements.cluesList.innerHTML = '';
+      
+      // 显示当前尝试次数对应的所有线索
+      for (let i = 0; i < gameData.currentAttempt; i++) {
+        const clue = document.createElement('li');
+        clue.textContent = gameData.characters[gameData.currentTarget].clues[i];
+        clue.className = 'animate-pulse-slow';
+        elements.cluesList.appendChild(clue);
+      }
+    }
+
+    // 启动计时器
+    function startTimer() {
+      // 清除之前的计时器
+      if (gameData.timerInterval) {
+        clearInterval(gameData.timerInterval);
+      }
+      
+      gameData.startTime = new Date();
+      
+      gameData.timerInterval = setInterval(() => {
+        const currentTime = new Date();
+        const elapsedTime = Math.floor((currentTime - gameData.startTime) / 1000);
+        
+        const minutes = Math.floor(elapsedTime / 60).toString().padStart(2, '0');
+        const seconds = (elapsedTime % 60).toString().padStart(2, '0');
+        
+        elements.timerDisplay.textContent = `${minutes}:${seconds}`;
+      }, 1000);
+    }
+
+    // 处理卡牌点击
+    function handleCardClick(event) {
+      if (gameData.isProcessing) return;
+      
+      // 第一次交互后尝试播放背景音乐
+      tryPlayBackgroundMusic();
+      
+      const card = event.currentTarget;
+      const character = card.dataset.character;
+      
+      // 翻转卡牌并播放音效
+      card.classList.add('flipped');
+      elements.flipSound.play().catch(e => console.log('播放翻牌音效失败:', e));
+      
+      gameData.isProcessing = true;
+      
+      // 短暂延迟后检查答案
+      setTimeout(() => {
+        if (character === gameData.currentTarget) {
+          // 猜对了
+          handleCorrectGuess();
+        } else {
+          // 猜错了
+          handleWrongGuess();
+        }
+      }, 800);
+    }
+
+    // 处理猜对的情况
+    function handleCorrectGuess() {
+      elements.correctSound.play().catch(e => console.log('播放正确音效失败:', e));
+      
+      // 停止计时器
+      clearInterval(gameData.timerInterval);
+      
+      // 根据猜测次数设置奖励
+      let rewardLevel, rewardName, rewardIcon, rewardMessage;
+      
+      switch(gameData.currentAttempt) {
+        case 1:
+          rewardLevel = 1;
+          rewardName = "金奖";
+          rewardIcon = '<i class="fa fa-trophy text-reward-1 animate-pulse"></i>';
+          rewardMessage = "太神奇了！你一次就猜对了，简直是迪士尼专家！";
+          break;
+        case 2:
+          rewardLevel = 2;
+          rewardName = "银奖";
+          rewardIcon = '<i class="fa fa-medal text-reward-2 animate-pulse"></i>';
+          rewardMessage = "太厉害了！第二次就猜对了，非常出色！";
+          break;
+        case 3:
+          rewardLevel = 3;
+          rewardName = "铜奖";
+          rewardIcon = '<i class="fa fa-award text-reward-3 animate-pulse"></i>';
+          rewardMessage = "不错哦！第三次就猜对了，继续加油！";
+          break;
+        case 4:
+          rewardLevel = 4;
+          rewardName = "优秀奖";
+          rewardIcon = '<i class="fa fa-star text-reward-4 animate-pulse"></i>';
+          rewardMessage = "很好！第四次猜对了，表现不错！";
+          break;
+        case 5:
+          rewardLevel = 5;
+          rewardName = "参与奖";
+          rewardIcon = '<i class="fa fa-gift text-reward-5 animate-pulse"></i>';
+          rewardMessage = "恭喜你！第五次猜对了！";
+          break;
+      }
+      
+      // 播放胜利音效，之后朗读角色名称
+      elements.winSound.play().catch(e => console.log('播放胜利音效失败:', e));
+      
+      // 胜利音效后朗读角色名称
+      setTimeout(() => {
+        const charData = gameData.characters[gameData.currentTarget];
+        speakCharacterName(charData.name, charData.englishName);
+      }, 1500);
+      
+      // 显示奖励弹窗
+      elements.rewardIcon.innerHTML = rewardIcon;
+      elements.rewardTitle.textContent = `恭喜获得${rewardName}！`;
+      elements.rewardMessage.textContent = rewardMessage;
+      elements.characterQuote.textContent = gameData.characters[gameData.currentTarget].quote;
+      
+      showModal();
+    }
+
+    // 处理猜错的情况
+    function handleWrongGuess() {
+      elements.wrongSound.play().catch(e => console.log('播放错误音效失败:', e));
+      
+      // 检查是否还有尝试次数
+      if (gameData.currentAttempt < gameData.maxAttempts) {
+        // 还有尝试次数，增加线索并翻回卡牌
+        gameData.currentAttempt++;
+        elements.attemptsDisplay.textContent = `${gameData.currentAttempt}/${gameData.maxAttempts}`;
+        
+        // 翻回所有卡牌
+        setTimeout(() => {
+          document.querySelectorAll('.card-flip').forEach(card => {
+            card.classList.remove('flipped');
+          });
+          
+          // 更新线索
+          updateClues();
+          gameData.isProcessing = false;
+        }, 1500);
+      } else {
+        // 没有尝试次数了
+        clearInterval(gameData.timerInterval);
+        
+        // 显示所有卡牌
+        setTimeout(() => {
+          document.querySelectorAll('.card-flip').forEach(card => {
+            card.classList.add('flipped');
+          });
+          
+          // 播放失败音效
+          elements.loseSound.play().catch(e => console.log('播放失败音效失败:', e));
+          
+          // 显示失败弹窗
+          elements.rewardIcon.innerHTML = '<i class="fa fa-meh-o text-gray-400"></i>';
+          elements.rewardTitle.textContent = "很遗憾，没有猜对";
+          elements.rewardMessage.textContent = `正确答案是：${gameData.characters[gameData.currentTarget].name} (${gameData.characters[gameData.currentTarget].englishName})`;
+          elements.characterQuote.textContent = gameData.characters[gameData.currentTarget].quote;
+          
+          showModal();
+        }, 1500);
+      }
+    }
+
+    // 朗读角色名称
+    function speakCharacterName(chineseName, englishName) {
+      if ('speechSynthesis' in window) {
+        // 先朗读中文名称
+        const chineseUtterance = new SpeechSynthesisUtterance(chineseName);
+        chineseUtterance.lang = 'zh-CN';
+        chineseUtterance.rate = 0.9;
+        
+        // 再朗读英文名称
+        const englishUtterance = new SpeechSynthesisUtterance(englishName);
+        englishUtterance.lang = 'en-US';
+        englishUtterance.rate = 0.9;
+        
+        // 按顺序朗读
+        window.speechSynthesis.speak(chineseUtterance);
+        
+        chineseUtterance.onend = function() {
+          setTimeout(() => {
+            window.speechSynthesis.speak(englishUtterance);
+          }, 500);
+        };
+      }
+    }
+
+    // 尝试播放背景音乐（需要用户交互后才能播放）
+    function tryPlayBackgroundMusic() {
+      if (!gameData.isMusicPlaying) {
+        elements.bgMusic.play()
+          .then(() => {
+            gameData.isMusicPlaying = true;
+            elements.musicToggle.innerHTML = '<i class="fa fa-pause"></i>';
+          })
+          .catch(e => console.log('背景音乐播放需要用户交互:', e));
+      }
+    }
+
+    // 切换背景音乐播放状态
+    function toggleBackgroundMusic() {
+      if (gameData.isMusicPlaying) {
+        elements.bgMusic.pause();
+        elements.musicToggle.innerHTML = '<i class="fa fa-music"></i>';
+      } else {
+        elements.bgMusic.play()
+          .then(() => {
+            elements.musicToggle.innerHTML = '<i class="fa fa-pause"></i>';
+          })
+          .catch(e => console.log('播放音乐失败:', e));
+      }
+      gameData.isMusicPlaying = !gameData.isMusicPlaying;
+    }
+
+    // 显示弹窗
+    function showModal() {
+      elements.rewardModal.classList.remove('hidden');
+      // 触发动画
+      setTimeout(() => {
+        elements.modalContent.classList.remove('scale-95', 'opacity-0');
+        elements.modalContent.classList.add('scale-100', 'opacity-100', 'transition-all', 'duration-300');
+      }, 10);
+    }
+
+    // 隐藏弹窗
+    function hideModal() {
+      elements.modalContent.classList.remove('scale-100', 'opacity-100');
+      elements.modalContent.classList.add('scale-95', 'opacity-0');
+      
+      setTimeout(() => {
+        elements.rewardModal.classList.add('hidden');
+        initGame(); // 重新开始游戏
+      }, 300);
+    }
+
+    // 事件监听
+    elements.restartBtn.addEventListener('click', () => {
+      clearInterval(gameData.timerInterval);
+      initGame();
+    });
+
+    elements.closeModal.addEventListener('click', hideModal);
+    
+    elements.musicToggle.addEventListener('click', toggleBackgroundMusic);
+
+    // 点击模态框外部关闭
+    elements.rewardModal.addEventListener('click', (e) => {
+      if (e.target === elements.rewardModal) {
+        hideModal();
+      }
+    });
+
+    // 页面加载完成后初始化游戏
+    document.addEventListener('DOMContentLoaded', initGame);
+</script>
+</body>
+</html>
